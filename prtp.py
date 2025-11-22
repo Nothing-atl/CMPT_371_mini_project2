@@ -1,4 +1,8 @@
 
+#reference: https://github.com/ysyesilyurt/RDT-Protocol/tree/master
+# https://github.com/Cole9712/Reliable-Data-Transfer-Protocol
+# https://github.com/gautamgitspace/Reliable-Data-Transfer-Protocol-
+
 import socket
 import struct
 import threading
@@ -70,12 +74,12 @@ class ReliableSocket:
     """
     Very small connection-oriented, reliable, pipelined protocol over UDP.
     
-    Features:
+    features:
       * 3-way handshake (SYN, SYN-ACK, ACK)
-      * Sliding window with Go-Back-N semantics
-      * Flow control (rwnd)
-      * Congestion control (slow start + AIMD like TCP Reno)
-      * Loss and corruption simulation via _udt_send()
+      * sliding window with Go-Back-N semantics
+      * flow control (rwnd)
+      * congestion control (slow start + AIMD like TCP Reno)
+      * loss and corruption simulation via _udt_send()
     """
     def __init__(self, loss_prob=0.0, corrupt_prob=0.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -90,7 +94,7 @@ class ReliableSocket:
         self.send_lock = threading.Lock()
         self.send_base = 0
         self.next_seq = 0
-        self.send_buffer = {}   # seq -> (packet_bytes, last_sent_time)
+        self.send_buffer = {}   # seq ->= (packet_bytes, last_sent_time)
         self.running = False
 
         # congestion control
@@ -112,14 +116,18 @@ class ReliableSocket:
     # ---------- Underlying send/recv with random loss/corruption ----------
 
     def _udt_send(self, data: bytes):
+        # Randomly decide to drop this packet altogether
         if random.random() < self.loss_prob:
-            # drop packet
+            # Pretend we sent it… but actually do nothing...
             return
         # maybe corrupt one byte
         if data and random.random() < self.corrupt_prob:
             idx = random.randrange(len(data))
+            # Flip all bits of that one byte
             flipped = bytes([data[idx] ^ 0xFF])
             data = data[:idx] + flipped + data[idx + 1:]
+        
+        # Finally, send whatever survived to the peer over UDP...    
         self.sock.sendto(data, self.peer)
 
     def _udt_recv(self, bufsize=2048):
@@ -127,6 +135,7 @@ class ReliableSocket:
             raw, addr = self.sock.recvfrom(bufsize)
             return raw, addr
         except socket.timeout:
+            # No packet arrived within the timeout window..
             return None, None
 
     # ---------- Connection management ----------
@@ -135,7 +144,7 @@ class ReliableSocket:
         self.sock.bind(addr)
 
     def listen(self):
-        # just to mimic TCP API
+        # just to mimic TCP API...
         pass
         
     def accept(self):
